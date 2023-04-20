@@ -4,7 +4,7 @@ import datetime
 import argparse
 import eml_parser
 import base64
-import json
+import csv
 import os
 import re
 
@@ -78,6 +78,38 @@ def export_attachments_to_malware_folder(_email_dict):
         print(f'[i] Unknown Failure. Please Investigate.')
 
 
+def email_to_csv(_dict, _file_in_name):
+    output = {}
+    if not isinstance(_dict, dict):
+        return
+
+    root_dict_keys = [x.lower() for x in _dict.keys()]
+    if 'header' in root_dict_keys:
+        for header_obj, _val in _dict['header'].items():
+            if header_obj.lower() == 'header':
+                output['other_headers'] = _val
+            else:
+                output[header_obj.lower()] = _val
+
+    if 'body' in root_dict_keys:
+        counter = 0
+        for body_component in _dict['body']:
+            for _key, _val in body_component.items():
+                output[f'{_key}_{counter}'] = _val
+
+    dict_to_csv(output, _file_in_name)
+
+
+def dict_to_csv(input_dict, file_name):
+    with open(f'{file_name}.csv', 'w', newline='') as csvfile:
+        fieldnames = ['name', 'value']
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+        writer.writeheader()
+        for key, value in input_dict.items():
+            writer.writerow({'name': key, 'value': value})
+
+
 def extract_urls(_string):
     global Link_set
     link_regex = re.compile(r'((https?):(( //) | (\\\\))+([\w\d:  # @%/;$()~_?\+-=\\\.&](#!)?)*)', re.DOTALL)
@@ -101,9 +133,8 @@ def main():
     ep = eml_parser.EmlParser(include_raw_body=True, include_attachment_data=True)
     ep.decode_email(message_file)
     email_dict = ep.parse_email()
+    email_to_csv(email_dict, file_in_name)
     print_cycle(email_dict)
-    with open(f'{file_in_name}.json', 'w') as output_file:
-        json.dump(email_dict, output_file)
 
     export_attachments_to_malware_folder(email_dict)
     print_link_results()
