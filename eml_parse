@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+
+import datetime
+import argparse
+import eml_parser
+import base64
+import json
+import os
+import re
+
+Indent_Level = int(4)
+Level = 0
+Link_set = set()
+Color = {
+   'PURPLE': '\033[95m',
+   'CYAN': '\033[96m',
+   'DARKCYAN': '\033[36m',
+   'BLUE': '\033[94m',
+   'GREEN': '\033[92m',
+   'YELLOW': '\033[93m',
+   'RED': '\033[91m',
+   'BOLD': '\033[1m',
+   'UNDERLINE': '\033[4m',
+   'END': '\033[0m'
+}
+
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-f', '--file', help='Target eml file', type=str, required=True)
+    arguments = parser.parse_args()
+    return arguments
+
+
+def print_cycle(_parsed_eml):
+    global Indent_Level, Color
+    if isinstance(_parsed_eml, str):
+        print(Color['BLUE'] + f'{_parsed_eml}' + Color['END'])
+        extract_urls(_parsed_eml)
+    elif isinstance(_parsed_eml, (datetime.date, datetime.date)):
+        print(f'\t{" " * Indent_Level}[i] TIMESTAMP:\t{_parsed_eml}')
+    elif isinstance(_parsed_eml, (float, int, complex)):
+        print(f'\t{" " * Indent_Level}{_parsed_eml}')
+    elif isinstance(_parsed_eml, (list, set, slice, tuple)):
+        for _item in _parsed_eml:
+            print_cycle(_item)
+    elif isinstance(_parsed_eml, dict):
+        for _entry in _parsed_eml:
+            print(Color['RED'] + Color['BOLD'] + f'\t{_entry}' + Color['END'])
+            print_cycle(_parsed_eml[_entry])
+    elif isinstance(_parsed_eml, (bytes, bytearray)):
+        print("\nBYTES DETECTED\n")
+    if not isinstance(_parsed_eml, (list, set, slice, tuple)):
+        print(Color['DARKCYAN'] + f'{"*" * 120}' + Color['END'])
+
+
+def export_attachments_to_malware_folder(_email_dict):
+    try:
+        attachments = _email_dict['attachment']
+        for attachment in attachments:
+
+            attachment_filename = attachment['filename']
+            attachment_extension = attachment['extension']
+            attachment_bytes = base64.b64decode(attachment['raw'].decode('ascii'))
+            target_filename = f'{attachment_filename}.{attachment_extension}'
+            target_path = os.getcwd()
+            if os.path.exists(target_path):
+                with open(f'{target_path}{target_filename}', 'wb') as attachment_output:
+                    attachment_output.write(attachment_bytes)
+                attachment_output.close()
+                print(f'[+] [FILE SAVED]\t{target_path}{target_filename}')
+            else:
+                print(f'[-] You do not appear to have a malware exclusion policy. '
+                      f'The following file attachment was not saved {target_filename}')
+    except KeyError:
+        print(f'[-] No Attachments Detected.')
+    else:
+        print(f'[i] Unknown Failure. Please Investigate.')
+
+
+def extract_urls(_string):
+    global Link_set
+    link_regex = re.compile(r'((https?):(( //) | (\\\\))+([\w\d:  # @%/;$()~_?\+-=\\\.&](#!)?)*)', re.DOTALL)
+    links = re.findall(link_regex, _string)
+    for link in links:
+        Link_set.add(link)
+
+
+def print_link_results():
+    global Link_set
+    if Link_set:
+        print(f'[+] Links Detected from Within Email:')
+        for link in Link_set:
+            print(f'\t[^] {link}')
+
+
+def main():
+    args = parse_args()
+    message_file = args.file
+    file_in_name = message_file.split('/')[-1]
+    ep = eml_parser.EmlParser(include_raw_body=True, include_attachment_data=True)
+    ep.decode_email(message_file)
+    email_dict = ep.parse_email()
+    print_cycle(email_dict)
+    with open(f'{file_in_name}.json', 'w') as output_file:
+        json.dump(email_dict, output_file)
+
+    export_attachments_to_malware_folder(email_dict)
+    print_link_results()
+
+
+if __name__ == "__main__":
+    main()

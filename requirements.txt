@@ -1,0 +1,5 @@
+charset-normalizer==3.1.0
+eml-parser==1.17.5
+publicsuffixlist==0.9.4
+python-dateutil==2.8.2
+six==1.16.0
