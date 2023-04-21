@@ -4,6 +4,7 @@ import datetime
 import argparse
 import eml_parser
 import base64
+import json
 import csv
 import os
 import re
@@ -78,6 +79,18 @@ def export_attachments_to_malware_folder(_email_dict):
         print(f'[i] Unknown Failure. Please Investigate.')
 
 
+class DateTimeEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (datetime.datetime, datetime.date)):
+            return obj.isoformat()
+        return super(DateTimeEncoder, self).default(obj)
+
+
+def write_to_json_file(email_dict, file_name):
+    with open(f'{file_name}.json', 'w') as json_file:
+        json.dump(email_dict, json_file, indent=4, cls=DateTimeEncoder)
+
+
 def email_to_csv(_dict, _file_in_name):
     output = {}
     if not isinstance(_dict, dict):
@@ -134,8 +147,11 @@ def main():
     ep.decode_email(message_file)
     email_dict = ep.parse_email()
     email_to_csv(email_dict, file_in_name)
-    print_cycle(email_dict)
 
+    # Call the new function to write email_dict to a JSON file
+    write_to_json_file(email_dict, file_in_name)
+
+    print_cycle(email_dict)
     export_attachments_to_malware_folder(email_dict)
     print_link_results()
 
