@@ -14,8 +14,8 @@ EML Parse is a Python script that parses and processes EML-formatted email files
 1. Grab the repo, change the privs, then run the script using Python, providing the path to the target EML file as a command-line argument:
 
 ```bash
-git clone http://gitlab.speakes/cspeakes/eml-email-file-parser.git
-cd eml-email-file-parser/
+git clone https://github.com/13alvone/EML-Parser.git
+cd EML-Parser/
 pip3 install -r requirements.txt
 chmod +x eml_parse
 mv eml_parse /usr/local/bin/
